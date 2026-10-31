@@ -17,6 +17,11 @@
   and a live graph of your agents and your Obsidian notes.
 </p>
 
+<p align="center">
+  <strong>New to AI coding agents?</strong> Start with the <a href="docs/getting-started.md">Getting started guide</a>:
+  from zero to your first agents in about 20 minutes.
+</p>
+
 ## The setup in one picture
 
 - **Nightyard** is the workspace: every agent session in its own terminal tab, per project, with cost and
@@ -120,9 +125,17 @@ Linux should work but is untested.
 
 ## Getting started on a fresh Mac
 
-1. **Install Claude Code** ([docs](https://docs.anthropic.com/en/docs/claude-code)), run `claude` once and log in
-   (`/login`). Optional: the [Codex CLI](https://github.com/openai/codex) (`codex login`) for Codex sessions,
-   Sleepy's Codex mode and Counsel seats.
+First time with coding agents? Follow the step-by-step [Getting started guide](docs/getting-started.md). The
+short version:
+
+> **Heads-up:** Nightyard runs Claude Code without permission prompts (`--dangerously-skip-permissions`), so
+> agents edit files and run commands without asking. Use it on projects in git, commit before you start a task,
+> and keep secrets out of project folders.
+
+1. **Install Claude Code** (`curl -fsSL https://claude.ai/install.sh | bash`, or see the
+   [docs](https://docs.anthropic.com/en/docs/claude-code)), run `claude` once and log in (`/login`). Optional:
+   the [Codex CLI](https://github.com/openai/codex) (`codex login`) for Codex sessions, Sleepy's Codex mode and
+   Counsel seats.
 2. **Install Nightyard**: download the `.dmg` from [Releases](https://github.com/STEIN64-BIT/nightyard/releases)
    (Apple Silicon or Intel), drag Nightyard to Applications and clear the quarantine flag once — see
    [Install](#install). Or run it from source.

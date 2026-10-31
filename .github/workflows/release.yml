@@ -51,7 +51,9 @@ jobs:
           if-no-files-found: error
 
   windows:
-    runs-on: windows-latest
+    # windows-latest is now the VS 2026 image, which node-gyp can't use yet to rebuild
+    # node-pty; windows-2025 still ships VS 2022.
+    runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,6 +72,8 @@ jobs:
 
   draft-release:
     needs: [mac, windows]
+    # Publish the Mac builds even when the Windows build fails.
+    if: ${{ !cancelled() && needs.mac.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
