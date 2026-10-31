@@ -1,0 +1,31 @@
+{
+  "name": "@sleepy/cli",
+  "version": "0.4.0",
+  "description": "sleepy CLI — autonomous Claude Code loop",
+  "type": "module",
+  "bin": {
+    "sleepy": "./bin/sleepy.mjs"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "marked": "^17",
+    "proper-lockfile": "^4.1.2",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/proper-lockfile": "^4.1.4",
+    "typescript": "^5.4.0",
+    "vitest": "^1.4.0"
+  }
+}

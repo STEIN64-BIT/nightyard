@@ -1,0 +1,154 @@
+export type { McpServer, Agent, Skill, Command, ProviderConfig, ClaudeConfig, GitWorktree, GitFileEntry, CostData, McpResult, ProviderId, CliProviderMeta, CliProviderCapabilities, StatsCache, ReadinessResult, ReadinessCategory, ReadinessCheck, ReadinessCheckStatus, CodexAccount } from '../shared/types.js';
+import type { CostData, ProviderConfig, GitWorktree, McpResult, ProviderId, CliProviderMeta, StatsCache, ReadinessResult, VaultGraph, CounselStartConfig, CounselEvent, ReadFileResult, CodexAccount, WakeySnapshot } from '../shared/types.js';
+
+export interface NightyardApi {
+  pty: {
+    create(sessionId: string, cwd: string, cliSessionId: string | null, isResume: boolean, extraArgs?: string, providerId?: ProviderId, initialPrompt?: string, systemPrompt?: string, account?: string): Promise<void>;
+    createShell(sessionId: string, cwd: string): Promise<void>;
+    write(sessionId: string, data: string): void;
+    resize(sessionId: string, cols: number, rows: number): void;
+    kill(sessionId: string): Promise<void>;
+    getCwd(sessionId: string): Promise<string | null>;
+    getBuffer(sessionId: string): Promise<{ data: string; lastSeq: number }>;
+    isAlive(sessionId: string): Promise<boolean>;
+    onData(callback: (sessionId: string, data: string, seq: number) => void): () => void;
+    onExit(callback: (sessionId: string, exitCode: number, signal?: number) => void): () => void;
+  };
+  windows: {
+    role: 'primary' | 'host';
+    id: string;
+    tearOffAt(sessionId: string, screenX: number, screenY: number): Promise<void>;
+    tearOffOutside(sessionId: string, screenX: number, screenY: number): Promise<void>;
+    transfer(sessionId: string, targetWindowId: string, index: number): Promise<void>;
+    moveToNewWindow(sessionId: string): Promise<void>;
+    setActiveSession(sessionId: string | null): void;
+    releaseSession(sessionId: string): void;
+    getSnapshot(): Promise<unknown>;
+    onChanged(callback: (snap: unknown) => void): () => void;
+    onSessionReleased(callback: (sessionId: string) => void): () => void;
+    onSessionAssigned(callback: (sessionId: string, index: number) => void): () => void;
+  };
+  state: {
+    onSnapshot(callback: (state: unknown) => void): () => void;
+  };
+  session: {
+    onHookStatus(callback: (sessionId: string, status: 'working' | 'waiting' | 'completed' | 'input', hookName: string) => void): () => void;
+    onCliSessionId(callback: (sessionId: string, cliSessionId: string) => void): () => void;
+    /** @deprecated Use onCliSessionId */
+    onClaudeSessionId(callback: (sessionId: string, claudeSessionId: string) => void): () => void;
+    onCostData(callback: (sessionId: string, costData: CostData) => void): () => void;
+  };
+  fs: {
+    isDirectory(path: string): Promise<boolean>;
+    expandPath(path: string): Promise<string>;
+    listDirs(dirPath: string, prefix?: string): Promise<string[]>;
+    browseDirectory(): Promise<string | null>;
+    listFiles(cwd: string, query: string): Promise<string[]>;
+    exists(filePath: string): Promise<boolean>;
+    readFile(filePath: string): Promise<ReadFileResult>;
+    readImage(filePath: string): Promise<{ dataUrl: string } | null>;
+    watchFile(filePath: string): void;
+    unwatchFile(filePath: string): void;
+    onFileChanged(callback: (filePath: string) => void): () => void;
+  };
+  store: {
+    load(): Promise<unknown>;
+    save(state: unknown): Promise<void>;
+  };
+  provider: {
+    getConfig(providerId: ProviderId, projectPath: string): Promise<ProviderConfig>;
+    getMeta(providerId: ProviderId): Promise<CliProviderMeta>;
+    listProviders(): Promise<CliProviderMeta[]>;
+    watchProject(providerId: ProviderId, projectPath: string): void;
+    onConfigChanged(callback: () => void): () => void;
+  };
+  codex: {
+    listAccounts(): Promise<CodexAccount[]>;
+  };
+  /** @deprecated Use provider namespace */
+  claude: {
+    getConfig(projectPath: string): Promise<ProviderConfig>;
+  };
+  git: {
+    getStatus(path: string): Promise<unknown>;
+    getFiles(path: string): Promise<unknown>;
+    getDiff(path: string, file: string, area: string): Promise<string>;
+    getWorktrees(path: string): Promise<GitWorktree[]>;
+    watchProject(path: string): void;
+    onChanged(callback: () => void): () => void;
+  };
+  update: {
+    checkNow(): Promise<void>;
+    install(): Promise<void>;
+    onAvailable(cb: (info: { version: string }) => void): () => void;
+    onDownloadProgress(cb: (info: { percent: number }) => void): () => void;
+    onDownloaded(cb: (info: { version: string }) => void): () => void;
+    onError(cb: (info: { message: string }) => void): () => void;
+  };
+  app: {
+    focus(): void;
+    getVersion(): Promise<string>;
+    openExternal(url: string): Promise<void>;
+    onQuitting(callback: () => void): () => void;
+  };
+  mcp: {
+    connect(id: string, url: string): Promise<McpResult>;
+    disconnect(id: string): Promise<McpResult>;
+    listTools(id: string): Promise<McpResult>;
+    listResources(id: string): Promise<McpResult>;
+    listPrompts(id: string): Promise<McpResult>;
+    callTool(id: string, name: string, args: Record<string, unknown>): Promise<McpResult>;
+    readResource(id: string, uri: string): Promise<McpResult>;
+    getPrompt(id: string, name: string, args: Record<string, string>): Promise<McpResult>;
+  };
+  readiness: {
+    analyze(projectPath: string, excludedProviders?: string[]): Promise<ReadinessResult>;
+  };
+  stats: {
+    getCache(): Promise<StatsCache | null>;
+  };
+  clipboard: {
+    write(text: string): Promise<void>;
+  };
+  vault: {
+    setPath(p: string): Promise<void>;
+    getGraph(): Promise<VaultGraph>;
+    readNote(relPath: string): Promise<string>;
+    onChanged(callback: (graph: VaultGraph) => void): () => void;
+  };
+  sleepy: {
+    spawn(sessionId: string, opts: { sleepyBin: string; args: string[]; cwd: string }): Promise<{ pid: number }>;
+    kill(sessionId: string): Promise<void>;
+    onData(sessionId: string, callback: (data: { chunk: string; stream: 'stdout' | 'stderr' }) => void): () => void;
+    onExit(sessionId: string, callback: (data: { code: number | null }) => void): () => void;
+    distill(input: { sessionName: string; projectName: string; summary: string; sourceNoteId?: string }): Promise<string>;
+  };
+  wakey: {
+    toggle(opts: { sessionId: string; projectId: string; projectPath: string; cliSessionId: string | null; direction?: string; boardContext?: string }): Promise<void>;
+    stop(sessionId: string): Promise<void>;
+    dismiss(runId: string): Promise<void>;
+    hello(sessions: Array<{ sessionId: string; cliSessionId: string | null; projectId: string; projectPath: string }>): Promise<void>;
+    setProjectDefault(projectId: string, direction: string): Promise<void>;
+    boardContext(projectId: string, summary: string): Promise<void>;
+    getState(): Promise<WakeySnapshot>;
+    onState(cb: (s: WakeySnapshot) => void): () => void;
+  };
+  counsel: {
+    start(config: Omit<CounselStartConfig, 'counselId'>): Promise<string>;
+    stop(counselId: string): Promise<void>;
+    checkEngines(): Promise<{ claude: boolean; codex: boolean }>;
+    onEvent(callback: (event: CounselEvent) => void): () => void;
+  };
+  menu: {
+    onNewProject(callback: () => void): () => void;
+    onNewSession(callback: () => void): () => void;
+    onToggleSplit(callback: () => void): () => void;
+    onNextSession(callback: () => void): () => void;
+    onPrevSession(callback: () => void): () => void;
+    onGotoSession(callback: (index: number) => void): () => void;
+    onToggleDebug(callback: () => void): () => void;
+    onUsageStats(callback: () => void): () => void;
+    onToggleInspector(callback: () => void): () => void;
+    onCloseSession(callback: () => void): () => void;
+  };
+}

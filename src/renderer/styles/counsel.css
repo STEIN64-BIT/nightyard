@@ -1,0 +1,531 @@
+/* Counsel tab */
+.counsel-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--bg-primary);
+  overflow: hidden;
+}
+
+.counsel-pane.hidden {
+  display: none;
+}
+
+/* --- Seat accents ---
+   Dedicated theme variables (base.css: --counsel-seat-a/-b/-c) give each
+   seat a hue that stays visually distinct from the other two AND from
+   --accent/--color-warning (which collapse to near-identical ambers in the
+   dark and light themes) — confirmed by rendering, not just reading hex
+   values. No hardcoded colors — these resolve through base.css's :root /
+   [data-theme="dark"] / [data-theme="light"] palettes.
+
+   Selectors are compound (`.counsel-seat-card.counsel-seat-a`, not bare
+   `.counsel-seat-a`) so they win the cascade over the
+   `border-left: … var(--border)` shorthand already set below on
+   `.counsel-seat-card`/`.counsel-bubble`/`.counsel-position`: a bare
+   `.counsel-seat-a { border-left-color: … }` has the same specificity
+   (0,1,0) as those shorthands, so it silently lost to whichever rule came
+   later in the file regardless of which one looks like the "override". */
+.counsel-seat-card.counsel-seat-a,
+.counsel-bubble.counsel-seat-a,
+.counsel-position.counsel-seat-a {
+  border-left-color: var(--counsel-seat-a);
+}
+.counsel-seat-card.counsel-seat-b,
+.counsel-bubble.counsel-seat-b,
+.counsel-position.counsel-seat-b {
+  border-left-color: var(--counsel-seat-b);
+}
+.counsel-seat-card.counsel-seat-c,
+.counsel-bubble.counsel-seat-c,
+.counsel-position.counsel-seat-c {
+  border-left-color: var(--counsel-seat-c);
+}
+
+.counsel-seat-card.counsel-seat-a .counsel-seat-card-label,
+.counsel-bubble.counsel-seat-a .counsel-bubble-name,
+.counsel-position.counsel-seat-a .counsel-position-name {
+  color: var(--counsel-seat-a);
+}
+.counsel-seat-card.counsel-seat-b .counsel-seat-card-label,
+.counsel-bubble.counsel-seat-b .counsel-bubble-name,
+.counsel-position.counsel-seat-b .counsel-position-name {
+  color: var(--counsel-seat-b);
+}
+.counsel-seat-card.counsel-seat-c .counsel-seat-card-label,
+.counsel-bubble.counsel-seat-c .counsel-bubble-name,
+.counsel-position.counsel-seat-c .counsel-position-name {
+  color: var(--counsel-seat-c);
+}
+
+/* --- Start view --- */
+.counsel-start {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+  box-sizing: border-box;
+}
+
+.counsel-empty-team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 16px;
+  text-align: center;
+}
+.counsel-empty-team.hidden {
+  display: none;
+}
+
+.counsel-empty-team-message {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.counsel-start-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.counsel-start-form.hidden {
+  display: none;
+}
+
+.counsel-question-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.counsel-question {
+  width: 100%;
+  min-height: 96px;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+.counsel-question:focus {
+  border-color: var(--accent);
+}
+.counsel-question::placeholder {
+  color: var(--text-muted);
+}
+
+/* Seat cards */
+.counsel-seat-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.counsel-seat-card {
+  flex: 1;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 6px;
+}
+
+.counsel-seat-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+/* Style + context-pass row */
+.counsel-start-options {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.counsel-start-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.counsel-start-field label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.counsel-start-field-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.counsel-start-field-checkbox label {
+  color: var(--text-primary);
+}
+
+.counsel-start-btn {
+  align-self: flex-start;
+  padding: 8px 20px;
+  background: var(--accent);
+  color: var(--accent-fg, #fff);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s;
+}
+.counsel-start-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+.counsel-start-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Shared small buttons (empty-team actions, stop, copy-verdict, back) */
+.counsel-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.counsel-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+.counsel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.counsel-btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg, #fff);
+  border-color: var(--accent);
+}
+.counsel-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+  border-color: var(--accent);
+}
+
+/* History */
+.counsel-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.counsel-history-heading {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.counsel-history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.counsel-history-item:hover {
+  border-color: var(--accent);
+}
+
+.counsel-history-question {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.counsel-history-date {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Confidence badge (history row + verdict card share this) */
+.counsel-confidence-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.counsel-confidence-high {
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+}
+.counsel-confidence-medium {
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+}
+.counsel-confidence-low {
+  background: color-mix(in srgb, var(--text-muted) 18%, transparent);
+  color: var(--text-muted);
+}
+
+/* --- Debate (thread) view --- */
+.counsel-thread {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.counsel-bubble {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 0 6px 6px 0;
+}
+
+.counsel-bubble-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.counsel-bubble-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.counsel-bubble-role {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.counsel-bubble-text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+/* Moderator chips — small centered pills between rounds */
+.counsel-moderator-chip {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  max-width: 90%;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  text-align: center;
+}
+.counsel-moderator-converged {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+.counsel-moderator-redirect {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+/* Live-debate footer: status text + stop button */
+.counsel-debate-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-primary);
+  flex-shrink: 0;
+}
+
+.counsel-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.counsel-stop-btn.hidden {
+  display: none;
+}
+.counsel-stop-btn:hover:not(:disabled) {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+/* Read-only history entry's "New counsel" back button — appended directly
+   under the pane. (The live view's own "New counsel" button, shown once
+   status reaches 'done', lives inside .counsel-debate-footer instead and
+   needs no extra rule — it's just a normal flex child there.) */
+.counsel-pane > .counsel-btn-primary {
+  margin: 12px 20px;
+  align-self: flex-start;
+}
+
+/* --- Verdict card --- */
+.counsel-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 4px 0 16px;
+  padding: 18px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.counsel-verdict-heading {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+/* The recommendation is the visually dominant element on the card. */
+.counsel-recommendation {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-primary);
+  padding: 12px 16px;
+  background: var(--bg-primary);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 4px 4px 0;
+}
+
+.counsel-agreed-points,
+.counsel-disagreements,
+.counsel-open-questions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.counsel-agreed-list,
+.counsel-open-questions-list {
+  list-style: disc;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.counsel-agreed-item,
+.counsel-open-question {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.counsel-disagreement {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.counsel-disagreement-topic {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.counsel-disagreement-positions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.counsel-position {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border-left: 3px solid var(--border);
+  border-radius: 0 4px 4px 0;
+}
+
+.counsel-position-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.counsel-position-text {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.counsel-lean-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.counsel-disagreement-rationale {
+  font-size: 12px;
+  line-height: 1.4;
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.counsel-copy-verdict-btn {
+  align-self: flex-start;
+}

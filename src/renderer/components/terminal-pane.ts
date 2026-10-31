@@ -1,0 +1,493 @@
+import { Terminal } from '@xterm/xterm';
+import { getTerminalTheme } from '../terminal-theme.js';
+import { FitAddon } from '@xterm/addon-fit';
+import { SearchAddon } from '@xterm/addon-search';
+import { WebLinksAddon } from '@xterm/addon-web-links';
+import { initSession, removeSession } from '../session-activity.js';
+import { markFreshSession } from '../session-insights.js';
+import { removeSession as removeCostSession, formatTokens, type CostInfo } from '../session-cost.js';
+import { removeSession as removeContextSession, getContextSeverity, type ContextWindowInfo } from '../session-context.js';
+import type { ProviderId } from '../types.js';
+import { getProviderCapabilities } from '../provider-availability.js';
+import { appState } from '../state.js';
+import { FilePathLinkProvider, GithubLinkProvider } from './terminal-link-provider.js';
+import { attachClipboardCopyHandler, attachCopyOnSelect, loadWebglWithFallback, planReplayFlush, wrapBracketedPaste } from './terminal-utils.js';
+import { FILE_PATH_DRAG_TYPE, NATIVE_FILES_DRAG_TYPE } from '../drag-types.js';
+
+interface TerminalInstance {
+  terminal: Terminal;
+  fitAddon: FitAddon;
+  searchAddon: SearchAddon;
+  element: HTMLDivElement;
+  sessionId: string;
+  projectPath: string;
+  cliSessionId: string | null;
+  providerId: ProviderId;
+  args: string;
+  /** Codex account (CODEX_HOME id) this tab runs under; undefined = default. */
+  account?: string;
+  isResume: boolean;
+  wasResumed: boolean;
+  spawned: boolean;
+  exited: boolean;
+  pendingPrompt: string | null;
+  pendingSystemPrompt: string | null;
+  pendingPromptTimer: ReturnType<typeof setTimeout> | null;
+  /** Non-null while a buffer replay is in flight; live chunks queue here. */
+  replayQueue: Array<{ seq: number; data: string }> | null;
+}
+
+const instances = new Map<string, TerminalInstance>();
+let focusedSessionId: string | null = null;
+
+export function createTerminalPane(
+  sessionId: string,
+  projectPath: string,
+  cliSessionId: string | null,
+  isResume: boolean = false,
+  args: string = '',
+  providerId: ProviderId = 'claude',
+  projectId?: string,
+  account?: string,
+): TerminalInstance {
+  if (instances.has(sessionId)) {
+    return instances.get(sessionId)!;
+  }
+
+  const element = document.createElement('div');
+  element.className = 'terminal-pane hidden';
+  element.dataset.sessionId = sessionId;
+
+  const xtermWrap = document.createElement('div');
+  xtermWrap.className = 'xterm-wrap';
+  element.appendChild(xtermWrap);
+
+  const statusBar = document.createElement('div');
+  statusBar.className = 'session-status-bar';
+  const contextIndicator = document.createElement('div');
+  contextIndicator.className = 'context-indicator';
+  const costDisplay = document.createElement('div');
+  costDisplay.className = 'cost-display';
+  const caps = getProviderCapabilities(providerId);
+  if (caps?.costTracking !== false) {
+    costDisplay.textContent = '$0.0000';
+  } else {
+    costDisplay.classList.add('hidden');
+  }
+  contextIndicator.classList.toggle('hidden', caps?.contextWindow === false);
+  statusBar.appendChild(contextIndicator);
+  statusBar.appendChild(costDisplay);
+  element.appendChild(statusBar);
+
+  const terminal = new Terminal({
+    theme: getTerminalTheme(appState.preferences.theme ?? 'dark'),
+    fontSize: 14,
+    fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', Menlo, monospace",
+    cursorBlink: true,
+    allowProposedApi: true,
+    linkHandler: {
+      activate: (event, uri) => {
+        if (event.metaKey || event.ctrlKey) {
+          window.nightyard.app.openExternal(uri);
+        }
+      },
+    },
+  });
+
+  const fitAddon = new FitAddon();
+  terminal.loadAddon(fitAddon);
+
+  const searchAddon = new SearchAddon();
+  terminal.loadAddon(searchAddon);
+
+  terminal.loadAddon(new WebLinksAddon((event, url) => {
+    if (event.metaKey || event.ctrlKey) {
+      window.nightyard.app.openExternal(url);
+    }
+  }));
+
+  const writeToPty = (data: string) => window.nightyard.pty.write(sessionId, data);
+
+  // Send CSI u encoding for Shift+Enter so Claude CLI treats it as newline
+  attachClipboardCopyHandler(terminal, (e) => {
+    if (e.shiftKey && e.key === 'Enter') {
+      if (e.type === 'keydown') window.nightyard.pty.write(sessionId, '\x1b[13;2u');
+      e.preventDefault();
+      return false;
+    }
+  }, writeToPty);
+
+  const instance: TerminalInstance = {
+    terminal,
+    fitAddon,
+    searchAddon,
+    element,
+    sessionId,
+    projectPath,
+    cliSessionId,
+    providerId,
+    args,
+    account,
+    isResume,
+    wasResumed: isResume,
+    spawned: false,
+    exited: false,
+    pendingPrompt: null,
+    pendingSystemPrompt: null,
+    pendingPromptTimer: null,
+    replayQueue: null,
+  };
+
+  instances.set(sessionId, instance);
+
+  // Register file path link provider for Cmd+Click
+  if (projectId) {
+    terminal.registerLinkProvider(new FilePathLinkProvider(projectId, projectPath, terminal));
+  }
+
+  // Register GitHub #123 link provider
+  window.nightyard.git.getRemoteUrl(projectPath).then((repoUrl) => {
+    if (repoUrl) {
+      terminal.registerLinkProvider(new GithubLinkProvider(repoUrl, terminal));
+    }
+  });
+
+  // Handle user input → PTY
+  terminal.onData((data) => {
+    window.nightyard.pty.write(sessionId, data);
+  });
+
+  // Focus tracking
+  element.addEventListener('mousedown', () => {
+    setFocused(sessionId);
+  });
+  terminal.onData(() => {
+    if (focusedSessionId !== sessionId) {
+      setFocused(sessionId);
+    }
+  });
+
+  element.addEventListener('dragover', (e: DragEvent) => {
+    if (!e.dataTransfer) return;
+    const types = e.dataTransfer.types;
+    if (!types.includes(FILE_PATH_DRAG_TYPE) && !types.includes(NATIVE_FILES_DRAG_TYPE)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+    element.classList.add('drag-over');
+  });
+  element.addEventListener('dragleave', (e: DragEvent) => {
+    const next = e.relatedTarget as Node | null;
+    if (!next || !element.contains(next)) {
+      element.classList.remove('drag-over');
+    }
+  });
+  element.addEventListener('drop', (e: DragEvent) => {
+    element.classList.remove('drag-over');
+    const paths = collectDroppedPaths(e.dataTransfer);
+    if (paths.length === 0) return;
+    e.preventDefault();
+    if (injectTextIntoRunningSession(sessionId, paths.join(' ') + ' ')) {
+      terminal.focus();
+    }
+  });
+
+  return instance;
+}
+
+export function getTerminalInstance(sessionId: string): TerminalInstance | undefined {
+  return instances.get(sessionId);
+}
+
+export function getAllInstances(): Map<string, TerminalInstance> {
+  return instances;
+}
+
+export function applyThemeToAllTerminals(theme: 'dark' | 'light'): void {
+  const termTheme = getTerminalTheme(theme);
+  for (const instance of instances.values()) {
+    instance.terminal.options.theme = termTheme;
+  }
+}
+
+export function setPendingPrompt(sessionId: string, prompt: string): void {
+  const instance = instances.get(sessionId);
+  if (instance) {
+    instance.pendingPrompt = prompt;
+  }
+}
+
+export function setPendingSystemPrompt(sessionId: string, prompt: string): void {
+  const instance = instances.get(sessionId);
+  if (instance) {
+    instance.pendingSystemPrompt = prompt;
+  }
+}
+
+function collectDroppedPaths(dt: DataTransfer | null): string[] {
+  if (!dt) return [];
+  const internal = dt.getData(FILE_PATH_DRAG_TYPE);
+  if (internal) return [internal];
+  const paths: string[] = [];
+  for (const file of dt.files) {
+    const path = window.nightyard.fs.getDroppedFilePath(file);
+    if (path) paths.push(path);
+  }
+  return paths;
+}
+
+export function injectTextIntoRunningSession(sessionId: string, text: string): boolean {
+  const instance = instances.get(sessionId);
+  if (!instance || !instance.spawned || instance.exited) return false;
+  window.nightyard.pty.write(sessionId, wrapBracketedPaste(instance.terminal, text));
+  return true;
+}
+
+export function injectPromptIntoRunningSession(sessionId: string, prompt: string): boolean {
+  if (!injectTextIntoRunningSession(sessionId, prompt)) return false;
+  window.nightyard.pty.write(sessionId, '\r');
+  return true;
+}
+
+function clearPendingPromptTimer(instance: TerminalInstance): void {
+  if (instance.pendingPromptTimer) {
+    clearTimeout(instance.pendingPromptTimer);
+    instance.pendingPromptTimer = null;
+  }
+}
+
+
+export async function spawnTerminal(sessionId: string): Promise<void> {
+  const instance = instances.get(sessionId);
+  if (!instance || instance.spawned) return;
+
+  instance.spawned = true;
+  instance.exited = false;
+
+  // Remove any exit overlay
+  const overlay = instance.element.querySelector('.terminal-exit-overlay');
+  if (overlay) overlay.remove();
+
+  // A live pty means this is a remount (tab moved windows, or Cmd+R) — attach
+  // and replay instead of respawning, which would kill the running CLI.
+  if (await window.nightyard.pty.isAlive(sessionId)) {
+    initSession(sessionId);
+    await replayInto(instance);
+    return;
+  }
+
+  if (!instance.isResume) {
+    markFreshSession(sessionId);
+  }
+  initSession(sessionId);
+  let initialPrompt: string | undefined;
+  if (instance.pendingPrompt && getProviderCapabilities(instance.providerId)?.pendingPromptTrigger === 'startup-arg') {
+    initialPrompt = instance.pendingPrompt;
+    instance.pendingPrompt = null;
+  }
+  let systemPrompt: string | undefined;
+  if (instance.pendingSystemPrompt) {
+    systemPrompt = instance.pendingSystemPrompt;
+    instance.pendingSystemPrompt = null;
+  }
+  try {
+    await window.nightyard.pty.create(sessionId, instance.projectPath, instance.cliSessionId, instance.isResume, instance.args, instance.providerId, initialPrompt, systemPrompt, instance.account);
+  } catch (err) {
+    // e.g. the Codex account for this tab is no longer logged in — say so in
+    // the tab instead of leaving it blank.
+    const message = err instanceof Error ? err.message : String(err);
+    instance.terminal.writeln(`\r\n\x1b[31m${message}\x1b[0m\r\n`);
+    return;
+  }
+  instance.isResume = true; // subsequent spawns (e.g. Restart Session) should resume
+}
+
+export function attachToContainer(sessionId: string, container: HTMLElement): void {
+  const instance = instances.get(sessionId);
+  if (!instance) return;
+
+  const xtermWrap = instance.element.querySelector('.xterm-wrap')!;
+  if (!xtermWrap.querySelector('.xterm')) {
+    container.appendChild(instance.element);
+    instance.terminal.open(xtermWrap as HTMLElement);
+
+    attachCopyOnSelect(instance.terminal);
+    loadWebglWithFallback(instance.terminal);
+  } else {
+    // Always re-append to ensure correct DOM order (appendChild moves existing children)
+    container.appendChild(instance.element);
+  }
+}
+
+export function showPane(sessionId: string, split: boolean): void {
+  const instance = instances.get(sessionId);
+  if (!instance) return;
+  instance.element.classList.remove('hidden');
+  if (split) {
+    instance.element.classList.add('split');
+  } else {
+    instance.element.classList.remove('split');
+  }
+}
+
+export function hidePane(sessionId: string): void {
+  const instance = instances.get(sessionId);
+  if (!instance) return;
+  instance.element.classList.add('hidden');
+}
+
+export function hideAllPanes(): void {
+  for (const [, instance] of instances) {
+    instance.element.classList.add('hidden');
+    instance.element.classList.remove('swarm-dimmed', 'swarm-unread');
+  }
+}
+
+export function fitTerminal(sessionId: string): void {
+  const instance = instances.get(sessionId);
+  if (!instance || instance.element.classList.contains('hidden')) return;
+
+  try {
+    instance.fitAddon.fit();
+    const { cols, rows } = instance.terminal;
+    window.nightyard.pty.resize(sessionId, cols, rows);
+  } catch {
+    // Element not yet visible
+  }
+}
+
+export function fitAllVisible(): void {
+  for (const [sessionId, instance] of instances) {
+    if (!instance.element.classList.contains('hidden')) {
+      fitTerminal(sessionId);
+    }
+  }
+}
+
+export function getSearchAddon(sessionId: string): SearchAddon | undefined {
+  return instances.get(sessionId)?.searchAddon;
+}
+
+export function getFocusedSessionId(): string | null {
+  return focusedSessionId;
+}
+
+export function setFocused(sessionId: string): void {
+  focusedSessionId = sessionId;
+
+  // Only move DOM focus if it's currently on a session terminal (or nothing).
+  // This prevents stealing focus from the project terminal panel, search bar, modals, etc.
+  const activeEl = document.activeElement;
+  const shouldFocusTerminal =
+    !activeEl ||
+    activeEl === document.body ||
+    !!activeEl.closest('.terminal-pane');
+
+  for (const [id, instance] of instances) {
+    if (id === sessionId) {
+      instance.element.classList.add('focused');
+      if (shouldFocusTerminal) {
+        instance.terminal.focus();
+      }
+    } else {
+      instance.element.classList.remove('focused');
+    }
+  }
+}
+
+export function handlePtyData(sessionId: string, data: string, seq?: number): void {
+  const instance = instances.get(sessionId);
+  if (!instance) return;
+  if (instance.replayQueue && seq !== undefined) {
+    instance.replayQueue.push({ seq, data });
+    return;
+  }
+  instance.terminal.write(data);
+}
+
+/** Replay main's ring buffer into a fresh xterm, then flush live chunks that raced it. */
+async function replayInto(instance: TerminalInstance): Promise<void> {
+  instance.replayQueue = [];
+  try {
+    const { data, lastSeq } = await window.nightyard.pty.getBuffer(instance.sessionId);
+    if (data) instance.terminal.write(data);
+    for (const chunk of planReplayFlush(instance.replayQueue, lastSeq)) {
+      instance.terminal.write(chunk);
+    }
+  } finally {
+    instance.replayQueue = null;
+  }
+}
+
+/** Tear down the xterm view without killing the pty — the session is moving to another window. */
+export function disposeTerminalView(sessionId: string): void {
+  const instance = instances.get(sessionId);
+  if (!instance) return;
+  clearPendingPromptTimer(instance);
+  instance.terminal.dispose();
+  instance.element.remove();
+  instances.delete(sessionId);
+  if (focusedSessionId === sessionId) focusedSessionId = null;
+}
+
+export function destroyTerminal(sessionId: string): void {
+  const instance = instances.get(sessionId);
+  if (!instance) return;
+
+  clearPendingPromptTimer(instance);
+  window.nightyard.pty.kill(sessionId);
+  instance.terminal.dispose();
+  instance.element.remove();
+  instances.delete(sessionId);
+  removeSession(sessionId);
+  removeCostSession(sessionId);
+  removeContextSession(sessionId);
+}
+
+function showStatusBar(instance: TerminalInstance): void {
+  const bar = instance.element.querySelector('.session-status-bar');
+  if (bar) bar.classList.remove('hidden');
+}
+
+export function updateCostDisplay(sessionId: string, cost: CostInfo): void {
+  const instance = instances.get(sessionId);
+  if (!instance) return;
+  if (getProviderCapabilities(instance.providerId)?.costTracking === false) return;
+  const el = instance.element.querySelector('.cost-display');
+  if (!el) return;
+
+  const costStr = `$${cost.totalCostUsd.toFixed(4)}`;
+  const modelPrefix = cost.model ? `${cost.model}  \u00b7  ` : '';
+  if (cost.totalInputTokens > 0 || cost.totalOutputTokens > 0) {
+    el.textContent = `${modelPrefix}${costStr}  \u00b7  ${formatTokens(cost.totalInputTokens)} in / ${formatTokens(cost.totalOutputTokens)} out`;
+    const durationSec = (cost.totalDurationMs / 1000).toFixed(1);
+    const apiDurationSec = (cost.totalApiDurationMs / 1000).toFixed(1);
+    (el as HTMLElement).title = `Cache read: ${formatTokens(cost.cacheReadTokens)} · Cache create: ${formatTokens(cost.cacheCreationTokens)} · Duration: ${durationSec}s · API: ${apiDurationSec}s`;
+  } else {
+    el.textContent = `${modelPrefix}${costStr}`;
+    (el as HTMLElement).title = '';
+  }
+  showStatusBar(instance);
+}
+
+export function updateContextDisplay(sessionId: string, info: ContextWindowInfo): void {
+  const instance = instances.get(sessionId);
+  if (!instance) return;
+  if (getProviderCapabilities(instance.providerId)?.contextWindow === false) return;
+  const el = instance.element.querySelector('.context-indicator') as HTMLElement | null;
+  if (!el) return;
+
+  const pct = Math.min(Math.round(info.usedPercentage), 100);
+  const filledCount = Math.round(pct / 10);
+  const emptyCount = 10 - filledCount;
+  const bar = '=' .repeat(filledCount) + '-'.repeat(emptyCount);
+  const tokenStr = formatTokens(info.totalTokens);
+
+  el.textContent = `[${bar}] ${pct}% ${tokenStr} tokens`;
+  el.title = `${info.totalTokens.toLocaleString()} / ${info.contextWindowSize.toLocaleString()} tokens`;
+
+  el.classList.remove('warning', 'critical');
+  const severity = getContextSeverity(pct);
+  if (severity) el.classList.add(severity);
+
+  showStatusBar(instance);
+}

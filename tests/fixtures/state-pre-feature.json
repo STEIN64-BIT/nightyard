@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "p1",
+      "name": "Demo",
+      "path": "/x",
+      "sessions": [],
+      "activeSessionId": null,
+      "layout": {
+        "mode": "tabs",
+        "splitPanes": [],
+        "splitDirection": "horizontal"
+      }
+    }
+  ],
+  "activeProjectId": "p1",
+  "preferences": {}
+}

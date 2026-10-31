@@ -1,0 +1,7 @@
+{
+  "name": "@sleepy/plugin",
+  "version": "0.3.1",
+  "private": true,
+  "description": "sleepy Claude Code plugin (markdown skills, not compiled)",
+  "files": ["plugin.json", "skills"]
+}

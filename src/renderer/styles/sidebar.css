@@ -1,0 +1,321 @@
+/* Sidebar */
+#sidebar {
+  width: 200px;
+  min-width: 150px;
+  max-width: 500px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+}
+
+#sidebar-resize-handle {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+#sidebar-resize-handle:hover,
+#sidebar-resize-handle.active {
+  background: var(--accent);
+}
+
+#sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  gap: 8px;
+}
+
+.sidebar-title {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Project-list sort toggle — accent color while in "Recent" mode. */
+#btn-project-sort.active {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+#sidebar.collapsed {
+  width: 44px !important;
+  min-width: 44px;
+  max-width: 44px;
+}
+
+#sidebar.collapsed .sidebar-title,
+#sidebar.collapsed .sidebar-header-actions,
+#sidebar.collapsed #sidebar-footer,
+#sidebar.collapsed #git-panel,
+#sidebar.collapsed .project-item,
+#sidebar.collapsed .project-panel,
+#sidebar.collapsed .project-action-btn.panel-toggle {
+  display: none;
+}
+
+#sidebar.collapsed #sidebar-header {
+  border-bottom: none;
+  padding: 10px 6px;
+  justify-content: center;
+}
+
+#sidebar.collapsed .project-actions {
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 4px;
+  align-items: stretch;
+}
+
+#sidebar.collapsed .project-action-btn {
+  flex: 0 0 auto;
+  height: 32px;
+  padding: 0;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+}
+
+#sidebar.collapsed .project-action-btn .action-label {
+  display: none;
+}
+
+#sidebar.collapsed .project-action-btn .action-icon {
+  display: flex;
+}
+
+#sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+#sidebar-footer {
+  border-top: 1px solid var(--border);
+  padding: 6px 12px;
+  user-select: none;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+#sidebar-footer.hidden {
+  display: none;
+}
+
+#project-list {
+  padding: 4px 0;
+}
+
+.project-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+  border-left: 3px solid transparent;
+}
+
+.project-row:first-child .project-item {
+  border-top: none;
+}
+
+.project-item:hover {
+  background: var(--bg-hover);
+}
+
+.project-item.active {
+  color: var(--text-primary);
+  border-left-color: var(--accent);
+}
+
+.project-item .project-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.project-item .project-name.unread {
+  color: var(--accent);
+}
+
+.project-item .project-name input {
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 2px;
+  color: inherit;
+  font: inherit;
+  padding: 0 2px;
+  outline: none;
+  width: 100%;
+  min-width: 40px;
+}
+
+.project-item .project-path {
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+  font-weight: 400;
+}
+
+.project-session-count {
+  opacity: 0.6;
+  font-size: 0.85em;
+}
+
+.project-item .project-delete {
+  opacity: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.project-item:hover .project-delete {
+  opacity: 1;
+}
+
+.project-item .project-delete:hover {
+  color: var(--accent);
+}
+
+.project-actions {
+  display: flex;
+  gap: 4px;
+  padding: 4px 12px 6px;
+}
+
+.project-action-btn {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: inherit;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-icon {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  flex-shrink: 0;
+}
+
+.action-icon svg {
+  display: block;
+}
+
+.action-label {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.project-action-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong, var(--border));
+  background: var(--bg-hover);
+}
+
+.project-action-btn.active {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+  background: var(--bg-hover);
+}
+
+.project-action-btn.has-readiness {
+  background-color: color-mix(in srgb, var(--readiness-color) 15%, transparent);
+  border-color: color-mix(in srgb, var(--readiness-color) 50%, transparent);
+}
+
+.project-action-btn.has-readiness:hover {
+  background-color: color-mix(in srgb, var(--readiness-color) 25%, transparent);
+}
+
+.project-panel {
+  background: var(--bg-secondary);
+  border-left: 3px solid transparent;
+}
+
+.project-panel.hidden {
+  display: none;
+}
+
+.project-panel-history {
+  padding-bottom: 4px;
+}
+
+/* Update banner */
+#update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--bg-tertiary);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+#update-banner.hidden {
+  display: none;
+}
+
+.update-banner-btn {
+  padding: 4px 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  color: white;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.update-banner-btn:hover {
+  background: var(--accent-dim);
+}
+
+.update-banner-btn.hidden {
+  display: none;
+}

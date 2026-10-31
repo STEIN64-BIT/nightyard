@@ -1,0 +1,2 @@
+Sleepy v0.4.0, vendored from https://github.com/STEIN64-BIT/sleepy at effbadfee140f757e822d3e8dedf899a2e81c3ce.
+Update with: scripts/vendor-sleepy.sh <path to a sleepy checkout> <git ref>

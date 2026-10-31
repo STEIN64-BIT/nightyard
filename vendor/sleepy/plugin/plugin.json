@@ -1,0 +1,7 @@
+{
+  "name": "sleepy",
+  "version": "0.4.0",
+  "description": "Autonomous Claude Code loop — orchestrator and worker skills for sleepy runs",
+  "author": "Stein Schuijt",
+  "homepage": "https://github.com/STEIN64-BIT/sleepy"
+}

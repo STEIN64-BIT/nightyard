@@ -1,0 +1,161 @@
+:root {
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #1a1a1a;
+  --bg-hover: #222222;
+  --text-primary: #e0e0e0;
+  --text-secondary: #a0a0b0;
+  --text-muted: #606070;
+  --accent: #e94560;
+  --accent-dim: #c73e55;
+  --border: #333333;
+  --tab-active: #000000;
+  --tab-inactive: #0a0a0a;
+  --pane-focus: #333333;
+  --pane-unfocus: #333333;
+  --bookmark: #e8a317;
+  --color-warning: #f4b400;
+  --color-success: #22c55e;
+  --counsel-seat-a: #3b82f6;
+  --counsel-seat-b: #22c55e;
+  --counsel-seat-c: #f97316;
+  --debug-panel-height: 300px;
+}
+
+[data-theme="dark"] {
+  --bg-primary: rgba(15, 23, 42, 0.55);
+  --bg-secondary: rgba(30, 41, 59, 0.70);
+  --bg-tertiary: rgba(51, 65, 85, 0.80);
+  --bg-hover: rgba(30, 42, 68, 0.85);
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --accent: #fbbf24;
+  --accent-dim: #d97706;
+  --border: rgba(30, 41, 59, 0.85);
+  --tab-active: rgba(15, 23, 42, 0.55);
+  --tab-inactive: rgba(30, 41, 59, 0.70);
+  --pane-focus: rgba(51, 65, 85, 0.80);
+  --pane-unfocus: rgba(30, 41, 59, 0.70);
+  --bookmark: #fbbf24;
+  --color-warning: #f59e0b;
+  --color-success: #22c55e;
+  --counsel-seat-a: #38bdf8;
+  --counsel-seat-b: #34d399;
+  --counsel-seat-c: #fb923c;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-tertiary: #e2e8f0;
+  --bg-hover: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --accent: #d97706;
+  --accent-dim: #b45309;
+  --border: #cbd5e1;
+  --tab-active: #f8fafc;
+  --tab-inactive: #f1f5f9;
+  --pane-focus: #94a3b8;
+  --pane-unfocus: #cbd5e1;
+  --bookmark: #d97706;
+  --color-warning: #f59e0b;
+  --color-success: #16a34a;
+  --counsel-seat-a: #2563eb;
+  --counsel-seat-b: #16a34a;
+  --counsel-seat-c: #ea580c;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+body {
+  /* Dusk-horizon backdrop drawn in pure CSS (no bundled image asset). */
+  background-image:
+    radial-gradient(120% 70% at 72% 108%, rgba(214, 140, 69, 0.50) 0%, rgba(214, 140, 69, 0) 60%),
+    radial-gradient(90% 60% at 12% -5%, rgba(96, 125, 186, 0.45) 0%, rgba(96, 125, 186, 0) 65%),
+    linear-gradient(180deg, #1c2740 0%, #2a3850 42%, #39483c 70%, #232c21 100%);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  background-color: var(--bg-primary);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
+}
+
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+body.debug-panel-open #app {
+  height: calc(100vh - var(--debug-panel-height));
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  gap: 12px;
+}
+
+.sleepy-glyph {
+  font-family: ui-monospace, "SF Mono", Monaco, monospace;
+  font-size: 1.75rem;
+  color: var(--accent);
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.empty-state .hint {
+  font-size: 12px;
+}
+
+/* Wakey toggle button — glows amber when ON */
+#btn-wakey-toggle.wakey-on {
+  color: var(--accent);
+  background: var(--bg-hover);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+/* Wakey badge on tabs */
+.tab-wakey-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--bg-primary);
+  background: var(--accent);
+  padding: 1px 4px;
+  margin-left: 6px;
+  border-radius: 2px;
+}

@@ -1,0 +1,59 @@
+@import url('./styles/base.css');
+@import url('./styles/sidebar.css');
+@import url('./styles/file-tree.css');
+@import url('./styles/tabs.css');
+@import url('./styles/terminal.css');
+@import url('./styles/search.css');
+@import url('./styles/modals.css');
+@import url('./styles/preferences.css');
+@import url('./styles/usage.css');
+@import url('./styles/debug-panel.css');
+@import url('./styles/dialogs.css');
+@import url('./styles/mcp-inspector.css');
+@import url('./styles/git-panel.css');
+@import url('./styles/file-viewer.css');
+@import url('./styles/session-history.css');
+@import url('./styles/alerts.css');
+@import url('./styles/p2p-sharing.css');
+@import url('./styles/session-inspector.css');
+@import url('./styles/browser-tab.css');
+@import url('./styles/kanban.css');
+@import url('./styles/team.css');
+@import url('./styles/project-tab.css');
+@import url('./styles/widgets.css');
+@import url('./styles/sleepy.css');
+@import url('./styles/counsel.css');
+
+/* Per-project sidebar agent-activity dot (driven by the agent-graph store). */
+.vy-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-left: 6px; vertical-align: middle; }
+.vy-dot--idle { background: transparent; }
+.vy-dot--attention { background: #f59e0b; }
+.vy-dot--working { background: #22c55e; animation: vy-pulse 1.2s ease-in-out infinite; }
+@keyframes vy-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+/* Fullscreen agent-activity graph overlay. */
+.vy-graph-overlay { position: fixed; inset: 0; background: #0b0f17; z-index: 9999; display: flex; flex-direction: column; outline: none; }
+.vy-graph-controls { display: flex; gap: 8px; padding: 8px; align-items: center; }
+.vy-graph-surface { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+
+/* "All Projects" overview: make the embedded gridstack fill the overlay and
+   never spill into a horizontal scrollbar. */
+.vy-global-overview-overlay .project-tab-grid-root { width: 100%; height: 100%; overflow: hidden; }
+.vy-global-overview-overlay .grid-stack { width: 100%; }
+.vy-global-overview-overlay .widget-agent-graph { width: 100%; height: 100%; }
+
+/* --- Session-host windows: tab strip + panes only --- */
+body.window-host #sidebar,
+body.window-host #sidebar-resize-handle,
+body.window-host #git-status,
+body.window-host #btn-toggle-swarm,
+body.window-host #btn-add-mcp-inspector,
+body.window-host #btn-add-browser-tab,
+body.window-host #btn-usage-stats,
+body.window-host #btn-toggle-terminal,
+body.window-host #btn-add-session-menu,
+body.window-host #project-terminal-panel,
+body.window-host #project-terminal-resize-handle {
+  display: none !important;
+}
+

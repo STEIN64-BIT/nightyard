@@ -1,0 +1,161 @@
+.sleepy-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  gap: 12px;
+  overflow: hidden;
+}
+
+.sleepy-pane-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sleepy-pane-glyph {
+  font-family: ui-monospace, "SF Mono", Monaco, monospace;
+  font-size: 1.5rem;
+  color: var(--accent);
+}
+
+.sleepy-pane-title {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.sleepy-pane-status {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.sleepy-prompt-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.sleepy-prompt-input {
+  flex: 1;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 60px;
+}
+
+.sleepy-prompt-input:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.sleepy-go-btn {
+  background: var(--accent);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 4px;
+  padding: 0 16px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: stretch;
+}
+
+.sleepy-go-btn:hover {
+  background: var(--accent-dim);
+}
+
+.sleepy-go-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sleepy-output {
+  flex: 1;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+  overflow-y: auto;
+  font-family: ui-monospace, "SF Mono", Monaco, monospace;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-secondary);
+  min-height: 0;
+}
+
+.sleepy-output .stderr {
+  color: var(--color-warning);
+}
+
+.sleepy-queue-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.sleepy-queue-row label {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.sleepy-queue-input {
+  width: 60px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 0.85rem;
+}
+
+.sleepy-queue-btn {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 12px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.sleepy-queue-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+}
+
+.sleepy-queue-btn.apply { color: var(--color-success); }
+.sleepy-queue-btn.discard { color: var(--color-warning); }
+
+.sleepy-run-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+.sleepy-run-options label { display: flex; align-items: center; gap: 8px; }
+.sleepy-run-options select {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font: inherit;
+}
+.sleepy-run-options [data-mode-help] { flex: 1 1 220px; color: var(--text-muted); }
+.sleepy-status-line { padding: 8px 0; color: var(--text-muted); font: inherit; }
+.sleepy-queue-row { flex-wrap: wrap; }
+.sleepy-queue-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.sleepy-prompt-input { min-width: 0; }

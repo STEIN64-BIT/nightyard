@@ -1,0 +1,110 @@
+import { appState } from './state.js';
+import { closeSessionWithConfirm } from './session-close.js';
+import { promptNewProject, toggleSidebar } from './components/sidebar.js';
+import { quickNewSession } from './components/tab-bar.js';
+import { toggleProjectTerminal } from './components/project-terminal.js';
+import { toggleDebugPanel } from './components/debug-panel.js';
+import { showHelpDialog } from './components/help-dialog.js';
+import { getFocusedSessionId } from './components/terminal-pane.js';
+import { showSearchBar, TerminalSearchBackend, ShellTerminalSearchBackend } from './components/search-bar.js';
+import { getActiveShellSessionId } from './components/project-terminal.js';
+import { toggleGitPanel } from './components/git-panel.js';
+import { showQuickOpen } from './components/quick-open.js';
+import { showSessionSearchPalette } from './components/session-search-palette.js';
+import { shortcutManager } from './shortcuts.js';
+import { getFileReaderInstance, getFileReaderTextSelector, showGoToLineBar } from './components/file-reader.js';
+import { getFileViewerInstance } from './components/file-viewer.js';
+import { DomSearchBackend } from './components/dom-search-backend.js';
+import { toggleInspector } from './components/session-inspector.js';
+import { showUsageModal } from './components/usage-modal.js';
+import { zoomIn, zoomOut, zoomReset } from './zoom.js';
+
+export function initKeybindings(): void {
+  const handleCloseSession = () => {
+    const project = appState.activeProject;
+    const session = appState.activeSession;
+    if (project && session) closeSessionWithConfirm(project.id, session.id);
+  };
+
+  // Menu IPC listeners — handle clicks on Electron menu items.
+  // Accelerators are display-only (registerAccelerator: false), so these
+  // only fire on actual menu clicks, not keyboard shortcuts.
+  window.nightyard.menu.onNewProject(promptNewProject);
+  window.nightyard.menu.onNewSession(quickNewSession);
+  window.nightyard.menu.onToggleSplit(() => appState.toggleSwarm());
+  window.nightyard.menu.onNextSession(() => appState.cycleSession(1));
+  window.nightyard.menu.onPrevSession(() => appState.cycleSession(-1));
+  window.nightyard.menu.onGotoSession((index) => appState.gotoSession(index));
+  window.nightyard.menu.onToggleDebug(toggleDebugPanel);
+  window.nightyard.menu.onUsageStats(showUsageModal);
+  window.nightyard.menu.onToggleInspector(toggleInspector);
+  window.nightyard.menu.onCloseSession(handleCloseSession);
+
+  // Register shortcut handlers — the single authority for keyboard shortcuts.
+  shortcutManager.registerHandler('new-session', quickNewSession);
+  shortcutManager.registerHandler('new-session-alt', quickNewSession);
+  shortcutManager.registerHandler('new-project', promptNewProject);
+  for (let i = 1; i <= 9; i++) {
+    shortcutManager.registerHandler(`goto-session-${i}`, () => appState.gotoSession(i - 1));
+  }
+  shortcutManager.registerHandler('next-session', () => appState.cycleSession(1));
+  shortcutManager.registerHandler('prev-session', () => appState.cycleSession(-1));
+  shortcutManager.registerHandler('tab-back', () => appState.navigateBack());
+  shortcutManager.registerHandler('tab-forward', () => appState.navigateForward());
+  shortcutManager.registerHandler('toggle-sidebar', toggleSidebar);
+  shortcutManager.registerHandler('toggle-split', () => appState.toggleSwarm());
+  shortcutManager.registerHandler('project-terminal', toggleProjectTerminal);
+  shortcutManager.registerHandler('project-terminal-alt', toggleProjectTerminal);
+  shortcutManager.registerHandler('debug-panel', toggleDebugPanel);
+  shortcutManager.registerHandler('git-panel', toggleGitPanel);
+  shortcutManager.registerHandler('quick-open', showQuickOpen);
+  shortcutManager.registerHandler('session-search', showSessionSearchPalette);
+  shortcutManager.registerHandler('find-in-terminal', () => {
+    const shellPanel = document.getElementById('project-terminal-panel');
+    if (shellPanel && !shellPanel.classList.contains('hidden') &&
+        shellPanel.contains(document.activeElement)) {
+      const shellSessionId = getActiveShellSessionId();
+      if (shellSessionId) {
+        showSearchBar(shellSessionId, ShellTerminalSearchBackend(shellSessionId));
+        return;
+      }
+    }
+
+    const session = appState.activeSession;
+    if (!session) return;
+
+    if (session.type === 'file-reader') {
+      const instance = getFileReaderInstance(session.id);
+      if (!instance) return;
+      const body = instance.element.querySelector('.file-reader-body') as HTMLElement;
+      if (!body) return;
+      showSearchBar(session.id, new DomSearchBackend(body, getFileReaderTextSelector(session.id)));
+    } else if (session.type === 'diff-viewer') {
+      const instance = getFileViewerInstance(session.id);
+      if (!instance) return;
+      const body = instance.element.querySelector('.file-viewer-body') as HTMLElement;
+      if (!body) return;
+      showSearchBar(session.id, new DomSearchBackend(body, '.diff-line'));
+    } else {
+      const sessionId = getFocusedSessionId();
+      if (sessionId) showSearchBar(sessionId, TerminalSearchBackend(sessionId));
+    }
+  });
+  shortcutManager.registerHandler('goto-line', () => {
+    const session = appState.activeSession;
+    if (session?.type === 'file-reader') {
+      showGoToLineBar(session.id);
+    }
+  });
+  shortcutManager.registerHandler('help', showHelpDialog);
+  shortcutManager.registerHandler('close-session', handleCloseSession);
+  shortcutManager.registerHandler('usage-stats', showUsageModal);
+  shortcutManager.registerHandler('toggle-inspector', toggleInspector);
+  shortcutManager.registerHandler('zoom-in', zoomIn);
+  shortcutManager.registerHandler('zoom-out', zoomOut);
+  shortcutManager.registerHandler('zoom-reset', zoomReset);
+
+  document.addEventListener('keydown', (e) => {
+    shortcutManager.matchEvent(e);
+  });
+}

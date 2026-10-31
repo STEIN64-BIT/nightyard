@@ -1,0 +1,270 @@
+import { vi } from 'vitest';
+import * as path from 'path';
+import { isWin } from '../platform';
+
+vi.mock('fs', () => ({
+  existsSync: vi.fn(),
+  statSync: vi.fn(() => { throw new Error('ENOENT'); }),
+}));
+
+vi.mock('os', () => ({
+  homedir: () => '/mock/home',
+}));
+
+vi.mock('child_process', () => ({
+  execSync: vi.fn(),
+}));
+
+vi.mock('../pty-manager', () => ({
+  getFullPath: vi.fn(() => isWin ? '/usr/local/bin;/usr/bin' : '/usr/local/bin:/usr/bin'),
+}));
+
+vi.mock('../hook-status', () => ({
+  getStatusLineScriptPath: vi.fn(() => '/tmp/nightyard/statusline.sh'),
+  installStatusLineScript: vi.fn(),
+  cleanupAll: vi.fn(),
+}));
+
+vi.mock('../claude-cli', () => ({
+  installHooks: vi.fn(),
+  getClaudeConfig: vi.fn(),
+}));
+
+import * as fs from 'fs';
+import { execSync } from 'child_process';
+import { ClaudeProvider, _resetCachedPath } from './claude-provider';
+
+const mockExistsSync = vi.mocked(fs.existsSync);
+const mockStatSync = vi.mocked(fs.statSync);
+const mockExecSync = vi.mocked(execSync);
+const fileStat = { isFile: () => true } as fs.Stats;
+
+let provider: ClaudeProvider;
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockStatSync.mockImplementation(() => { throw new Error('ENOENT'); });
+  _resetCachedPath();
+  provider = new ClaudeProvider();
+});
+
+describe('meta', () => {
+  it('has correct id, displayName, and binaryName', () => {
+    expect(provider.meta.id).toBe('claude');
+    expect(provider.meta.displayName).toBe('Claude Code');
+    expect(provider.meta.binaryName).toBe('claude');
+  });
+
+  it('has all capabilities set to true', () => {
+    const caps = provider.meta.capabilities;
+    expect(caps.sessionResume).toBe(true);
+    expect(caps.costTracking).toBe(true);
+    expect(caps.contextWindow).toBe(true);
+    expect(caps.hookStatus).toBe(true);
+    expect(caps.configReading).toBe(true);
+    expect(caps.shiftEnterNewline).toBe(true);
+    expect(caps.pendingPromptTrigger).toBe('startup-arg');
+    expect(caps.planModeArg).toBe('--permission-mode plan');
+    expect(caps.systemPromptInjection).toBe(true);
+  });
+
+  it('has defaultContextWindowSize of 200,000', () => {
+    expect(provider.meta.defaultContextWindowSize).toBe(200_000);
+  });
+});
+
+describe('resolveBinaryPath', () => {
+  const firstCandidate = isWin
+    ? path.join('/mock/home', 'AppData', 'Roaming', 'npm', 'claude.cmd')
+    : '/usr/local/bin/claude';
+
+  it('returns candidate path when statSync finds a file', () => {
+    mockStatSync.mockImplementation((p) => {
+      if (p === firstCandidate) return fileStat;
+      throw new Error('ENOENT');
+    });
+    expect(provider.resolveBinaryPath()).toBe(firstCandidate);
+  });
+
+  it(`falls back to ${isWin ? 'where' : 'which'} claude when no candidate exists`, () => {
+    mockExecSync.mockReturnValue('/some/other/path/claude\n' as any);
+    expect(provider.resolveBinaryPath()).toBe('/some/other/path/claude');
+  });
+
+  it('falls back to bare "claude" when both candidate and which fail', () => {
+    mockExecSync.mockImplementation(() => { throw new Error('not found'); });
+    expect(provider.resolveBinaryPath()).toBe('claude');
+  });
+
+  it('caches result on subsequent calls', () => {
+    mockStatSync.mockImplementation((p) => {
+      if (p === firstCandidate) return fileStat;
+      throw new Error('ENOENT');
+    });
+    provider.resolveBinaryPath();
+    mockStatSync.mockImplementation(() => { throw new Error('ENOENT'); }); // change behavior
+    // Should still return cached value
+    expect(provider.resolveBinaryPath()).toBe(firstCandidate);
+  });
+});
+
+describe('validatePrerequisites', () => {
+  const validateCandidate = isWin
+    ? path.join('/mock/home', 'AppData', 'Roaming', 'npm', 'claude.cmd')
+    : '/opt/homebrew/bin/claude';
+
+  it('returns ok when binary found via statSync', () => {
+    mockStatSync.mockImplementation((p) => {
+      if (p === validateCandidate) return fileStat;
+      throw new Error('ENOENT');
+    });
+    expect(provider.validatePrerequisites()).toBe(true);
+  });
+
+  it('returns ok when binary found via which', () => {
+    mockExistsSync.mockReturnValue(false);
+    mockExecSync.mockReturnValue('/resolved/claude\n' as any);
+    expect(provider.validatePrerequisites()).toBe(true);
+  });
+
+  it('returns not ok when binary not found anywhere', () => {
+    mockExistsSync.mockReturnValue(false);
+    mockExecSync.mockImplementation(() => { throw new Error('not found'); });
+    expect(provider.validatePrerequisites()).toBe(false);
+  });
+});
+
+describe('buildEnv', () => {
+  it('sets NIGHTYARD_SESSION_ID to the session ID', () => {
+    const env = provider.buildEnv('sess-123', {});
+    expect(env.NIGHTYARD_SESSION_ID).toBe('sess-123');
+  });
+
+  it('sets PATH to the augmented PATH', () => {
+    const env = provider.buildEnv('sess-123', {});
+    expect(env.PATH).toBe(isWin ? '/usr/local/bin;/usr/bin' : '/usr/local/bin:/usr/bin');
+  });
+
+  it('deletes CLAUDE_CODE from env if present', () => {
+    const env = provider.buildEnv('sess-123', { CLAUDE_CODE: '1', OTHER: 'val' });
+    expect(env.CLAUDE_CODE).toBeUndefined();
+    expect(env.OTHER).toBe('val');
+  });
+});
+
+describe('buildArgs', () => {
+  it('returns ["-r", id] when isResume=true with cliSessionId', () => {
+    const args = provider.buildArgs({ cliSessionId: 'sid-1', isResume: true, extraArgs: '' });
+    expect(args).toEqual(['-r', 'sid-1', '--dangerously-skip-permissions']);
+  });
+
+  it('returns ["--session-id", id] when isResume=false with cliSessionId', () => {
+    const args = provider.buildArgs({ cliSessionId: 'sid-1', isResume: false, extraArgs: '' });
+    expect(args).toEqual(['--session-id', 'sid-1', '--dangerously-skip-permissions']);
+  });
+
+  it('returns only the skip-permissions flag when cliSessionId is null', () => {
+    const args = provider.buildArgs({ cliSessionId: null, isResume: false, extraArgs: '' });
+    expect(args).toEqual(['--dangerously-skip-permissions']);
+  });
+
+  it('splits extraArgs on whitespace and appends', () => {
+    const args = provider.buildArgs({ cliSessionId: null, isResume: false, extraArgs: '--verbose  --debug' });
+    expect(args).toEqual(['--verbose', '--debug', '--dangerously-skip-permissions']);
+  });
+
+  it('combines session args and extra args', () => {
+    const args = provider.buildArgs({ cliSessionId: 'sid-1', isResume: true, extraArgs: '--verbose' });
+    expect(args).toEqual(['-r', 'sid-1', '--verbose', '--dangerously-skip-permissions']);
+  });
+
+  it('passes initialPrompt as positional arg', () => {
+    const args = provider.buildArgs({ cliSessionId: null, isResume: false, extraArgs: '', initialPrompt: 'fix the linter' });
+    expect(args).toEqual(['fix the linter', '--dangerously-skip-permissions']);
+  });
+
+  it('passes initialPrompt after session-id args', () => {
+    const args = provider.buildArgs({ cliSessionId: 'sid-1', isResume: false, extraArgs: '', initialPrompt: 'fix the linter' });
+    expect(args).toEqual(['--session-id', 'sid-1', 'fix the linter', '--dangerously-skip-permissions']);
+  });
+
+  it('passes systemPrompt as --append-system-prompt argv pair', () => {
+    const args = provider.buildArgs({ cliSessionId: null, isResume: false, extraArgs: '', systemPrompt: 'You are the CMO.' });
+    expect(args).toEqual(['--append-system-prompt', 'You are the CMO.', '--dangerously-skip-permissions']);
+  });
+
+  it('preserves multi-line systemPrompt as a single argv element', () => {
+    const prompt = 'You are the CMO.\n\nFocus on:\n- growth\n- retention';
+    const args = provider.buildArgs({ cliSessionId: null, isResume: false, extraArgs: '', systemPrompt: prompt });
+    expect(args).toEqual(['--append-system-prompt', prompt, '--dangerously-skip-permissions']);
+  });
+
+  it('puts systemPrompt before initialPrompt and extra args', () => {
+    const args = provider.buildArgs({
+      cliSessionId: 'sid-1',
+      isResume: false,
+      extraArgs: '--verbose',
+      initialPrompt: 'hello',
+      systemPrompt: 'be concise',
+    });
+    expect(args).toEqual(['--session-id', 'sid-1', '--append-system-prompt', 'be concise', 'hello', '--verbose', '--dangerously-skip-permissions']);
+  });
+
+  it('always includes --dangerously-skip-permissions, even with no other args', () => {
+    const args = provider.buildArgs({ cliSessionId: null, isResume: false, extraArgs: '' });
+    expect(args).toContain('--dangerously-skip-permissions');
+  });
+
+  it('forces --dangerously-skip-permissions onto a resumed session that lacks it', () => {
+    const args = provider.buildArgs({ cliSessionId: 'sid-1', isResume: true, extraArgs: '' });
+    expect(args).toEqual(['-r', 'sid-1', '--dangerously-skip-permissions']);
+  });
+
+  it('does not duplicate --dangerously-skip-permissions when extraArgs already has it', () => {
+    const args = provider.buildArgs({ cliSessionId: null, isResume: false, extraArgs: '--dangerously-skip-permissions' });
+    expect(args.filter((a) => a === '--dangerously-skip-permissions')).toHaveLength(1);
+  });
+});
+
+describe('getShiftEnterSequence', () => {
+  it('returns the kitty keyboard protocol sequence', () => {
+    expect(provider.getShiftEnterSequence()).toBe('\x1b[13;2u');
+  });
+});
+
+describe('getTranscriptPath', () => {
+  it('returns slugged path when file exists', () => {
+    mockExistsSync.mockReturnValue(true);
+    const out = provider.getTranscriptPath('abc-123', '/Users/me/dev/my repo');
+    // Non-alphanumeric chars all collapse to '-'
+    expect(out).toBe(path.join('/mock/home', '.claude', 'projects', '-Users-me-dev-my-repo', 'abc-123.jsonl'));
+  });
+
+  it('returns null when the file does not exist', () => {
+    mockExistsSync.mockReturnValue(false);
+    expect(provider.getTranscriptPath('sid', '/tmp/proj')).toBeNull();
+  });
+
+  it('slugs Windows-style project paths', () => {
+    mockExistsSync.mockReturnValue(true);
+    const out = provider.getTranscriptPath('sid', 'C:\\Users\\me\\proj');
+    // ':' and '\' each collapse to '-', producing 'C--Users-me-proj'
+    expect(out).toBe(path.join('/mock/home', '.claude', 'projects', 'C--Users-me-proj', 'sid.jsonl'));
+  });
+});
+
+describe('parseCostFromOutput', () => {
+  it('extracts last $X.XX match from text', () => {
+    const result = provider.parseCostFromOutput('Total cost: $1.23');
+    expect(result).toEqual({ totalCostUsd: 1.23 });
+  });
+
+  it('returns null when no cost pattern found', () => {
+    expect(provider.parseCostFromOutput('no costs here')).toBeNull();
+  });
+
+  it('handles multiple cost values and picks last one', () => {
+    const result = provider.parseCostFromOutput('Cost: $0.50 then $1.75 then $3.20');
+    expect(result).toEqual({ totalCostUsd: 3.20 });
+  });
+});
