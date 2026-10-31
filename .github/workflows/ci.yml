@@ -16,7 +16,7 @@ jobs:
       matrix:
         os: [macos-latest, ubuntu-latest, windows-2025]
     runs-on: ${{ matrix.os }}
-    # The fork's own tests have only been run on macOS and Linux so far;
+    # Nightyard's tests have only been run on macOS and Linux so far;
     # report Windows results without failing the whole run.
     continue-on-error: ${{ matrix.os == 'windows-2025' }}
 

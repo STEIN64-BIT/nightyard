@@ -46,8 +46,8 @@ function createWindow(): void {
 
   mainWindow.loadFile(path.join(__dirname, '..', '..', 'renderer', 'index.html'));
 
-  // Always open devtools so console + errors are visible during fork dev.
-  mainWindow.webContents.openDevTools({ mode: 'detach' });
+  // In a dev checkout, open devtools so console errors are visible. Never in the packaged app.
+  if (!app.isPackaged) mainWindow.webContents.openDevTools({ mode: 'detach' });
 
   // Open external links in default browser instead of inside the app
   const isHttpUrl = (url: string) => url.startsWith('http://') || url.startsWith('https://');

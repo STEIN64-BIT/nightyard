@@ -104,7 +104,7 @@ describe('auto-updater', () => {
     expect(freshUpdater.on).not.toHaveBeenCalled();
   });
 
-  it('stays off when the build has no update config (fork builds publish nowhere)', async () => {
+  it('stays off when the build has no update config (Nightyard builds publish nowhere)', async () => {
     const fs = await import('fs');
     const os = await import('os');
     const path = await import('path');

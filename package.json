@@ -6,9 +6,6 @@
     "name": "Stein Schuijt",
     "email": "stein.schuijt@gmail.com"
   },
-  "contributors": [
-    "Stein Schuijt (Nightyard fork)"
-  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -139,5 +136,8 @@
     "picomatch": "^4.0.3",
     "three-spritetext": "^1.10.0",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "node-gyp": "12.2.0"
   }
 }

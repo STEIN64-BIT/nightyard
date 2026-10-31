@@ -51,8 +51,7 @@ jobs:
           if-no-files-found: error
 
   windows:
-    # windows-latest is now the VS 2026 image, which node-gyp can't use yet to rebuild
-    # node-pty; windows-2025 still ships VS 2022.
+    # The Windows images ship VS 2026, which needs node-gyp 12+ (pinned via package.json overrides).
     runs-on: windows-2025
     steps:
       - uses: actions/checkout@v4
